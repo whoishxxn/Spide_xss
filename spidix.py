@@ -1,35 +1,15 @@
-git clone https://github.com/yourusername/xss_vibes.git
-cd xss_vibes
-chmod +x setup.sh
-./setup.shimport requests
-from Header import Parser
+import requests
 import re
-from adder import Adder
 from colorama import Fore, Style, init
 import json
 from Waf import Waf_Detect
 from optparse import OptionParser
 import subprocess
 import sys
-from urllib.parse import urlparse, urlsplit, parse_qs, urlencode, urlunsplit
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from bs4 import BeautifulSoup
-import logging
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service as ChromeService
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.common.exceptions import TimeoutException, UnexpectedAlertPresentException
+from urllib.parse import urlparse
+from concurrent.futures import ThreadPoolExecutor
 from rich import print as rich_print
 from rich.panel import Panel
-from rich.console import Console
-from rich.progress import Progress
-from rich.text import Text
-from time import sleep
-import aiohttp
 
 # Define constants and utility functions
 VERSION = 'v1.4'
@@ -61,13 +41,6 @@ USER_AGENTS = [
 
 init(autoreset=True)
 
-def check_and_install_packages(packages):
-    for package, version in packages.items():
-        try:
-            __import__(package)
-        except ImportError:
-            subprocess.check_call([sys.executable, '-m', 'pip', 'install', f"{package}=={version}"])
-
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
 
@@ -80,9 +53,7 @@ def print_exit_menu():
 |   __ <|  |  |  -__||   __ <|  |  |  -__|
 |______/|___  |_____||______/|___  |_____|
         |_____|              |_____|      
-   
-  Credit: Spidix-sec
-            """,
+    """,
             style="bold green",
             border_style="blue",
             expand=False
@@ -106,8 +77,8 @@ print(Fore.LIGHTBLUE_EX + r"""
                             ::::::::::   :::       : :  ::::::::  :::  :::  :::  
                             ________________________________________________________   
                                                   
-                                 #Security is just an Illusion
-                                  #Modified by : Spidix Sec
+                                 # Security is just an Illusion
+                                 # Author : Spidix-sec
 
             """.center(80) + Fore.WHITE + Style.RESET_ALL)
 
@@ -121,6 +92,7 @@ parser.add_option('-H', dest='headers', help="specify Custom Headers")
 parser.add_option('--waf', dest='waf',action='store_true', help="detect web application firewall and then test payloads")
 parser.add_option('-w', dest='custom_waf',help='use specific payloads related to W.A.F')
 parser.add_option('--pipe',dest="pipe",action="store_true",help="pipe output of a process as an input")
+parser.add_option('--payloads', dest='payloads', help="specify path to XSS payloads file. Eg: payloads.txt")
 
 val,args = parser.parse_args()
 filename = val.filename
@@ -131,13 +103,14 @@ waf = val.waf
 pipe = val.pipe
 custom_waf = val.custom_waf
 headers = val.headers
+payloads_path = val.payloads
 
 try:
     if headers:
         print(Fore.WHITE + "[+] HEADERS: {}".format(headers))
-        headers = Parser.headerParser(headers.split(','))
+        headers = {header.split(":")[0]: header.split(":")[1].strip() for header in headers.split(',')}
 except AttributeError:
-    headers = Parser.headerParser(headers.split())
+    headers = {header.split(":")[0]: header.split(":")[1].strip() for header in headers.split()}
 
 try:
     threads = int(threads)
@@ -148,16 +121,17 @@ if threads > 10:
 
 class Main:
 
-    def __init__(self,url=None, filename=None, output=None,headers=None):
+    def __init__(self, url=None, filename=None, output=None, headers=None, payloads_path=None):
         self.filename = filename
         self.url = url
         self.output = output
         self.headers = headers
+        self.payloads_path = payloads_path
         self.result = []
 
-    def read(self,filename):
+    def read(self, filename):
         print(Fore.WHITE + "READING URLS")
-        urls = subprocess.check_output(f"cat {filename} | grep '=' | sort -u",shell=True).decode('utf-8')
+        urls = subprocess.check_output(f"cat {filename} | grep '=' | sort -u", shell=True).decode('utf-8')
         if not urls:
             print(Fore.GREEN + f"[+] NO URLS WITH GET PARAMETER FOUND")
         return urls.split()
@@ -165,10 +139,10 @@ class Main:
     def write(self, output, value):
         if not output:
             return None
-        subprocess.call(f"echo '{value}' >> {output}",shell=True)
+        subprocess.call(f"echo '{value}' >> {output}", shell=True)
 
-    def replace(self,url,param_name,value):
-        return re.sub(f"{param_name}=([^&]+)",f"{param_name}={value}",url)
+    def replace(self, url, param_name, value):
+        return re.sub(f"{param_name}=([^&]+)", f"{param_name}={value}", url)
 
     def bubble_sort(self, arr):
         a = 0
@@ -191,7 +165,7 @@ class Main:
                 b += 1
             a += 1
         return arr
-    
+
     def parameters(self, url):
         param_names = []
         params = urlparse(url).query
@@ -227,12 +201,12 @@ class Main:
         dic = {param_name: []}
         try:
             for data in arr:
-                final_parameters = self.parser(url,param_name,data + "randomstring")
+                final_parameters = self.parser(url, param_name, data + "randomstring")
                 new_url = urlparse(url).scheme + "://" + urlparse(url).hostname + "/" + urlparse(url).path
                 if self.headers:
-                    response = requests.get(new_url,params=final_parameters,headers=self.headers,verify=False).text
+                    response = requests.get(new_url, params=final_parameters, headers=self.headers, verify=False).text
                 else:
-                    response = requests.get(new_url,params=final_parameters,verify=False).text
+                    response = requests.get(new_url, params=final_parameters, verify=False).text
                 if data + "randomstring" in response:
                     if not threads or threads == 1:
                         print(Fore.GREEN + f"[+] {data} is reflecting in the response")
@@ -244,7 +218,9 @@ class Main:
 
     def fuzzer(self, url):
         data = []
-        dangerous_characters = Adder().dangerous_characters
+        dangerous_characters = []
+        with open(self.payloads_path, 'r') as f:
+            dangerous_characters = f.read().splitlines()
         parameters = self.parameters(url)
         if '' in parameters and len(parameters) == 1:
             print(Fore.RED + f"[+] NO GET PARAMETER IDENTIFIED...EXITING")
@@ -264,9 +240,10 @@ class Main:
         payload_list = []
         size = int(len(arr) / 2)
         if not threads or threads == 1:
-            print(Fore.WHITE + f"[+] LOADING PAYLOAD FILE payloads.json")
-        dbs = open("payloads.json")
-        dbs = json.load(dbs)
+            print(Fore.WHITE + f"[+] LOADING PAYLOAD FILE {self.payloads_path}")
+        dbs = []
+        with open(self.payloads_path, 'r') as f:
+            dbs = json.load(f)
         new_dbs = []
         if firewall:
             print(Fore.GREEN + f"[+] FILTERING PAYLOADS FOR {firewall.upper()}")
@@ -343,10 +320,10 @@ class Main:
 
 if __name__ == "__main__":
     urls = []
-    Scanner = Main(filename, output, headers=headers)
+    Scanner = Main(filename, output, headers=headers, payloads_path=payloads_path)
     try:
         if url and not filename:
-            Scanner = Main(url,output,headers=headers)
+            Scanner = Main(url,output,headers=headers, payloads_path=payloads_path)
             Scanner.scanner(url)
             if Scanner.result:
                 Scanner.write(output,Scanner.result[0])
