@@ -1,17 +1,15 @@
 #!/bin/bash
 
-# Install system dependencies
+# Update the package list
 sudo apt-get update
+
+# Install Python 3 and pip3 if not already installed
 sudo apt-get install -y python3 python3-pip
 
-# Install Python dependencies
-pip3 install requests colorama rich beautifulsoup4 selenium webdriver_manager aiohttp
-
-# Clone the repository
-git clone https://github.com/yourusername/xss_vibes.git
-cd xss_vibes
+# Install Python dependencies from requirements.txt
+pip3 install -r requirements.txt
 
 # Make the script executable
-chmod +x xss_vibes_merged.py
+chmod +x spidix.py
 
-echo "Installation completed. You can now run the script using './spidex.py'"
+echo "Installation completed. You can now run the script using 'python3 spidix.py'"
